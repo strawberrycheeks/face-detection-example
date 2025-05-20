@@ -108,6 +108,13 @@
             2
           )} мс\n`;
 
+          const mem = tf.memory();
+          output.textContent += `\nПамять: ${(
+            mem.numBytes /
+            1024 /
+            1024
+          ).toFixed(2)} MB, тензоров: ${mem.numTensors}\n`;
+
           const times = [];
           for (let i = 0; i < 100; i++) {
             const start = performance.now();
@@ -132,13 +139,6 @@
           output.textContent += `Мин: ${min.toFixed(2)} мс\n`;
           output.textContent += `Макс: ${max.toFixed(2)} мс\n`;
           output.textContent += `Ст. отклонение: ${std.toFixed(2)} мс\n`;
-
-          const mem = tf.memory();
-          output.textContent += `\nПамять: ${(
-            mem.numBytes /
-            1024 /
-            1024
-          ).toFixed(2)} MB, тензоров: ${mem.numTensors}\n`;
         } catch (err) {
           output.textContent += "Ошибка: " + err.message;
         }
