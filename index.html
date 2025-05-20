@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TensorFlow.js: MediaPipe face detection</title>
+
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+
+    <!-- Модель MediaPipe Face Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection@1.0.3"></script>
+
+    <!-- Backends -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.22.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.22.0"></script>
+  </head>
+  <body>
+    <h2>TensorFlow.js: MediaPipe face detection</h2>
+
+    <label for="backendSelect">Backend:</label>
+    <select id="backendSelect">
+      <option value="webgl">WebGL</option>
+      <option value="wasm">WASM</option>
+      <option value="webgpu">WebGPU</option>
+      <option value="cpu">CPU</option>
+    </select>
+
+    <button onclick="run()">Запустить 100 раз</button>
+
+    <pre id="output"></pre>
+
+    <script>
+      let inputImageTensor = null;
+
+      async function loadImageAsTensor(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = url;
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            const imgTensor = tf.browser.fromPixels(imageData).toFloat();
+            resolve(imgTensor);
+          };
+          img.onerror = (err) => reject(err);
+        });
+      }
+
+      window.onload = async () => {
+        const output = document.getElementById("output");
+        output.textContent = "Загрузка изображения...\n";
+        try {
+          const imageURL =
+            "https://github.com/strawberrycheeks/face-detection-example/blob/a709042586ffd506dc91ff3aa60e88af0f0e65b0/min-yoongi-photo.jpg";
+          inputImageTensor = await loadImageAsTensor(imageURL);
+          output.textContent +=
+            "Изображение загружено: " +
+            inputImageTensor.shape.slice(0, 2).join("x") +
+            "\n";
+        } catch (e) {
+          output.textContent += "Ошибка загрузки изображения: " + e.message;
+        }
+      };
+
+      async function run() {
+        const backend = document.getElementById("backendSelect").value;
+        const output = document.getElementById("output");
+        output.textContent += "Настройка backend: " + backend + "...\n";
+
+        try {
+          if (!inputImageTensor) {
+            output.textContent += "Изображение ещё не загружено.\n";
+            return;
+          }
+
+          if (backend === "wasm") {
+            tf.wasm.setWasmPaths(
+              "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/"
+            );
+          }
+
+          await tf.setBackend(backend);
+          await tf.ready();
+
+          output.textContent += "Backend активен: " + tf.getBackend() + "\n";
+
+          const t0 = performance.now();
+          const model = await faceDetection.createDetector(
+            faceDetection.SupportedModels.MediaPipeFaceDetector,
+            {
+              runtime: "tfjs",
+              maxFaces: 1,
+            }
+          );
+          const t1 = performance.now();
+          output.textContent += `Модель загружена за ${(t1 - t0).toFixed(
+            2
+          )} мс\n`;
+
+          const times = [];
+          for (let i = 0; i < 100; i++) {
+            const start = performance.now();
+            await model.estimateFaces(inputImageTensor);
+            const end = performance.now();
+            times.push(end - start);
+          }
+
+          const mean = times.reduce((a, b) => a + b, 0) / times.length;
+          const sorted = [...times].sort((a, b) => a - b);
+          const median = sorted[Math.floor(times.length / 2)];
+          const min = Math.min(...times);
+          const max = Math.max(...times);
+          const std = Math.sqrt(
+            times.reduce((sum, t) => sum + Math.pow(t - mean, 2), 0) /
+              times.length
+          );
+
+          output.textContent += `\nРезультаты 100 инференсов:\n`;
+          output.textContent += `Среднее время: ${mean.toFixed(2)} мс\n`;
+          output.textContent += `Медиана: ${median.toFixed(2)} мс\n`;
+          output.textContent += `Мин: ${min.toFixed(2)} мс\n`;
+          output.textContent += `Макс: ${max.toFixed(2)} мс\n`;
+          output.textContent += `Ст. отклонение: ${std.toFixed(2)} мс\n`;
+
+          const mem = tf.memory();
+          output.textContent += `\nПамять: ${(
+            mem.numBytes /
+            1024 /
+            1024
+          ).toFixed(2)} MB, тензоров: ${mem.numTensors}\n`;
+        } catch (err) {
+          output.textContent += "Ошибка: " + err.message;
+        }
+      }
+    </script>
+  </body>
+</html>
