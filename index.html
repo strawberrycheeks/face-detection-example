@@ -21,10 +21,10 @@
 
     <label for="backendSelect">Backend:</label>
     <select id="backendSelect">
-      <option value="webgl">WebGL</option>
-      <option value="wasm">WASM</option>
-      <option value="webgpu">WebGPU</option>
       <option value="cpu">CPU</option>
+      <option value="wasm">WASM</option>
+      <option value="webgl">WebGL</option>
+      <option value="webgpu">WebGPU</option>
     </select>
 
     <button onclick="run()">Запустить 100 раз</button>
@@ -53,12 +53,12 @@
         });
       }
 
-      window.onload = async () => {
+      loadImage = async () => {
         const output = document.getElementById("output");
         output.textContent = "Загрузка изображения...\n";
         try {
           const imageURL =
-            "https://github.com/strawberrycheeks/face-detection-example/blob/main/min-yoongi-photo.jpg";
+            "https://raw.githubusercontent.com/strawberrycheeks/face-detection-example/main/min-yoongi-photo.jpg";
           inputImageTensor = await loadImageAsTensor(imageURL);
           output.textContent +=
             "Изображение загружено: " +
@@ -75,11 +75,6 @@
         output.textContent += "Настройка backend: " + backend + "...\n";
 
         try {
-          if (!inputImageTensor) {
-            output.textContent += "Изображение ещё не загружено.\n";
-            return;
-          }
-
           if (backend === "wasm") {
             tf.wasm.setWasmPaths(
               "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/"
@@ -88,6 +83,8 @@
 
           await tf.setBackend(backend);
           await tf.ready();
+
+          await loadImage();
 
           output.textContent += "Backend активен: " + tf.getBackend() + "\n";
 
@@ -101,6 +98,13 @@
           );
           const t1 = performance.now();
           output.textContent += `Модель загружена за ${(t1 - t0).toFixed(
+            2
+          )} мс\n`;
+
+          const t2 = performance.now();
+          await model.estimateFaces(inputImageTensor);
+          const t3 = performance.now();
+          output.textContent += `Время первого инференса: ${(t3 - t2).toFixed(
             2
           )} мс\n`;
 
